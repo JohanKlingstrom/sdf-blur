@@ -22,11 +22,18 @@ const material = new THREE.ShaderMaterial({
     }`,
   fragmentShader: /* glsl */`
     varying vec2 v_texcoord;
+    float sdRoundRect(vec2 p, vec2 b, float r) {
+      vec2 d = abs(p - 0.5) * 4.2 - b + vec2(r);
+      return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - r;
+    }
     void main() {
         vec2 st = v_texcoord;
-        vec3 color = vec3(st.x, st.y, 1.0);
+        float roundness = 0.4;
+        float size = 1.2;
+        float sdf = sdRoundRect(st, vec2(size), roundness);   
+        vec3 color = vec3(sdf);
         gl_FragColor = vec4(color.rgb, 1.0);
-    }`
+    }`,
 });
 const mesh = new THREE.Mesh(geometry, material);
 
