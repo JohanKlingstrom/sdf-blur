@@ -1,16 +1,25 @@
 import './style.css';
 import * as THREE from 'three';
+import fragmentShader from './shaders/fragment.glsl';
 
 const scene = new THREE.Scene();
+const vMouse = new THREE.Vector2();
+const vMouseDamp = new THREE.Vector2();
+const vResolution = new THREE.Vector2();
 
-let width = window.innerWidth;
-let height = window.innerHeight;
+let w = window.innerWidth;
+let h = window.innerHeight;
 
-const aspect = width / height;
+const aspect = w / h;
 const camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 1000);
 
 const renderer = new THREE.WebGLRenderer();
 document.body.appendChild(renderer.domElement);
+
+const onPointerMove = (e) => { vMouse.set(e.pageX, e.pageY) }
+document.addEventListener('mousemove', onPointerMove);
+document.addEventListener('pointermove', onPointerMove);
+document.body.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
 
 const geometry = new THREE.BoxGeometry(1, 1);
 const material = new THREE.ShaderMaterial({
@@ -20,31 +29,62 @@ const material = new THREE.ShaderMaterial({
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         v_texcoord = uv;
     }`,
-  fragmentShader: /* glsl */`
-    varying vec2 v_texcoord;
-    float sdRoundRect(vec2 p, vec2 b, float r) {
-      vec2 d = abs(p - 0.5) * 4.2 - b + vec2(r);
-      return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - r;
-    }
-    void main() {
-        vec2 st = v_texcoord;
-        float roundness = 0.4;
-        float size = 1.2;
-        float sdf = sdRoundRect(st, vec2(size), roundness);   
-        vec3 color = vec3(sdf);
-        gl_FragColor = vec4(color.rgb, 1.0);
-    }`,
+  fragmentShader,
+  uniforms: {
+    u_mouse: { value: vMouseDamp },
+    u_resolution: { value: vResolution },
+    u_pixelRatio: { value: 2 }
+  },
+  defines: {
+    VAR: 0
+  }
 });
+
 const mesh = new THREE.Mesh(geometry, material);
 
 scene.add(mesh);
 
-renderer.setSize(width, height);
+renderer.setSize(w, h);
 
 camera.position.z = 1;
 
+let time, lastTime = 0;
 const animate = () => {
+  // calculate delta time
+  time = performance.now() * 0.001;
+  const dt = time - lastTime;
+  lastTime = time;
+
+  // ease mouse motion with damping
+  for (const k in vMouse) {
+    if (k == 'x' || k == 'y') vMouseDamp[k] = THREE.MathUtils.damp(vMouseDamp[k], vMouse[k], 8, dt);
+  }
+
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
 };
 animate();
+
+
+const resize = () => {
+  w = window.innerWidth;
+  h = window.innerHeight;
+
+  const dpr = Math.min(window.devicePixelRatio, 2);
+
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(dpr);
+
+  camera.left = -w / 2;
+  camera.right = w / 2;
+  camera.top = h / 2;
+  camera.bottom = -h / 2;
+  camera.updateProjectionMatrix();
+
+  mesh.scale.set(w, h, 1);
+  vResolution.set(w, h).multiplyScalar(dpr);
+  mat.uniforms.u_pixelRatio.value = dpr;
+};
+resize();
+
+window.addEventListener('resize', resize)
