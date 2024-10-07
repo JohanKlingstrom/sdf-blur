@@ -83,7 +83,7 @@ const resize = () => {
 
   mesh.scale.set(w, h, 1);
   vResolution.set(w, h).multiplyScalar(dpr);
-  mat.uniforms.u_pixelRatio.value = dpr;
+  material.uniforms.u_pixelRatio.value = dpr; 
 };
 resize();
 
